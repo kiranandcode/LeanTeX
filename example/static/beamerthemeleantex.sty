@@ -1,0 +1,19 @@
+\mode<presentation>
+
+% requirements
+\RequirePackage{tikz}
+\usetikzlibrary{calc,patterns.meta,decorations.pathmorphing,through}
+
+\DeclareOptionBeamer{style}{
+  \PassOptionsToPackage{style=#1}{beamercolorthemeleantex}
+}
+\ExecuteOptionsBeamer{style=purple}
+\ProcessOptionsBeamer
+
+\useinnertheme{leantex}
+\useoutertheme{leantex}
+\usecolortheme{leantex}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{blocks}[rounded][shadow=true]
+
+\mode<all>

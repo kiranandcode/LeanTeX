@@ -1,0 +1,5 @@
+/.lake
+example/.lake
+example/build
+example/static/auto
+.DS_Store

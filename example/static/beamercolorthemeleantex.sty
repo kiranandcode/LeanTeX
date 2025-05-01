@@ -1,0 +1,31 @@
+\mode<presentation>
+
+\DeclareOptionBeamer{style}{\def\beamer@leantex@style{#1}}
+\ExecuteOptionsBeamer{style=default} % trans will be the default colour
+\ProcessOptionsBeamer
+
+\def\beamer@trans@styledefault{default}%
+
+\def\beamer@trans@styledefault{default}%
+
+% \definecolor{primary1}{rgb}{0.357,0.808,0.980}
+% \definecolor{primary1}{rgb}{0.004,0.82,1.0}
+\definecolor{primary1}{RGB}{142, 82, 204}
+\definecolor{primary2}{RGB}{225, 199, 243}
+\definecolor{primary3}{RGB}{255, 118, 26}
+
+% \definecolor{primary2}{rgb}{0.961,0.663,0.722}
+% \definecolor{primary2}{rgb}{1.0,0.647,0.718}
+
+% \definecolor{primary3}{rgb}{1.0,1.0,1.0}
+\colorlet{primary1-text}{white}
+\colorlet{secondary1-text}{black}
+
+
+\setbeamercolor*{title page header}{fg=primary1-text}
+\setbeamercolor*{author}{fg=secondary1-text}
+\setbeamercolor*{date}{fg=secondary1-text}
+\setbeamercolor*{institute}{fg=secondary1-text}
+
+
+\mode<all>

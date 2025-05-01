@@ -1,0 +1,13 @@
+* Tasks
+** DONE Setup target to encode
+CLOSED: [2025-04-30 Wed 12:33]
+** DONE Implement Packages
+CLOSED: [2025-04-30 Wed 13:51]
+** DONE Themeing
+CLOSED: [2025-04-30 Wed 15:06]
+** DONE Copy over files from static dir
+CLOSED: [2025-04-30 Wed 15:08]
+** DONE Input?
+CLOSED: [2025-04-30 Wed 15:09]
+** TODO Setup tikzpicture with a scoped context
+
