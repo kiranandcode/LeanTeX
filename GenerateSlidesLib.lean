@@ -7,7 +7,7 @@ import LeanTeX.LatexGen
 
 def beamerPreamble (packages: String) (preamble: String) : String :=
    s!"\\documentclass[aspectratio=169,xcolor=\{usenames,dvipsnames,svgnames}]\{beamer}\n\\usepackage\{tikz}\n{packages}\n{preamble}\n\\begin\{document}"
-def beamerPostamble : String := "\\end{document}"
+def beamerPostamble : String := "\\end{document}\n%%% Local Variables:\n%%% mode: LaTeX\n%%% TeX-master: t\n%%% End:\n"
 
 section Meta 
 open Lean Elab Command Term Meta

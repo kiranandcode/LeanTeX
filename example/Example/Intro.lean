@@ -25,4 +25,11 @@ def slide_temp :=
          \end{enumerate}
       |]
 
+@[presentation]
+def tikz_picture :=
+   slide "Drawing Latex diagrams!" do
+     tikz do
+       node latex![| \fontsize{20}{20}\selectfont{hello} |]
+     
+
 end Intro

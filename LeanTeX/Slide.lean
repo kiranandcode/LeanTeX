@@ -28,8 +28,8 @@ inductive SlideContent
 deriving Repr
 
 
-structure Slide where
-  title: Option String
-  content: List SlideContent
+inductive Slide where
+| BasicSlide (title: Option String) (content: List SlideContent)
+| RawSlide (str: String)
 deriving Repr
 

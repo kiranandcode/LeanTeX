@@ -34,8 +34,6 @@ def renderTikzCommand : TikzCommand -> String
      else ",".intercalate styles |> (s!"[{·}]")
   s!"\\draw{rangeStr}{stylesStr} {body};"
 
-
-
 def renderContent : List SlideContent -> String
 | [] => ""
 | SlideContent.item txt :: rest =>
@@ -57,7 +55,10 @@ def renderContent : List SlideContent -> String
   ++ renderContent rest
 
 def renderSlide (s: Slide) : String :=
-  let title := match s.title with
-    | .none => ""
-    | .some title => s!"\{{title}}"
-  s!"\\begin\{frame}{title}\n{renderContent s.content}\n\\end\{frame}"
+  match s with
+  | .BasicSlide title content =>
+     let title := match title with
+       | .none => ""
+       | .some title => s!"\{{title}}"
+     s!"\\begin\{frame}{title}\n{renderContent content}\n\\end\{frame}"
+  | .RawSlide s => s
