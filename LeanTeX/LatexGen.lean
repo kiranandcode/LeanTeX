@@ -33,6 +33,12 @@ def renderTikzCommand : TikzCommand -> String
      if styles.isEmpty then ""
      else ",".intercalate styles |> (s!"[{·}]")
   s!"\\draw{rangeStr}{stylesStr} {body};"
+| .layer layer body =>
+  s!"\\begin\{pgfonlayer}\{{layer}}\n" ++ 
+  "\n".intercalate (body.map renderTikzCommand) ++
+  s!"\n\\end\{pgfonlayer}\n"
+| .block body =>
+  "\n".intercalate (body.map renderTikzCommand)
 
 def renderContent : List SlideContent -> String
 | [] => ""
@@ -60,5 +66,5 @@ def renderSlide (s: Slide) : String :=
      let title := match title with
        | .none => ""
        | .some title => s!"\{{title}}"
-     s!"\\begin\{frame}{title}\n{renderContent content}\n\\end\{frame}"
+     s!"\\begin\{frame}{title}\n{renderContent content}\n\\end\{frame}\n"
   | .RawSlide s => s

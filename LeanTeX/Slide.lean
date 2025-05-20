@@ -17,6 +17,8 @@ inductive TikzCommand where
 | text (t: String)
 | node (range: List LatexInterval) (styles: List String) (pos: Option String) (body: String)
 | draw (range: List LatexInterval) (styles: List String) (body: String)
+| layer (s: String) (body: List TikzCommand)
+| block (body: List TikzCommand)
 deriving Repr
 
 inductive SlideContent

@@ -88,6 +88,9 @@ def expandTikzBody : TSyntax `tikz_body -> MacroM (TSyntax `term)
 
 syntax "node" (interval_spec)? ("[" latex_option,* "]")? (ident)? (tikz_at_spec)? tikz_body : tikz_item
 syntax "draw" (interval_spec)? ("[" latex_option,* "]")? tikz_body : tikz_item
+syntax "on " "layer " ident " do " ppLine withPosition((colEq tikz_item ppLine)*): tikz_item
+syntax "for " sepBy1(Parser.Term.doForDecl, ", ") " do " ppLine withPosition((colEq tikz_item ppLine)*): tikz_item
+
 
 def expandIntervalSpec: TSyntax `interval_spec -> MacroM (TSyntax `term)
 | `(interval_spec| < $it:interval,* > ) => do
@@ -95,7 +98,39 @@ def expandIntervalSpec: TSyntax `interval_spec -> MacroM (TSyntax `term)
   `([$elems,*])
 | _ => Macro.throwUnsupported
 
-def elabTikzItem: TSyntax `tikz_item -> MacroM (TSyntax `term)
+partial def elabTikzItem: TSyntax `tikz_item -> MacroM (TSyntax `term)
+| `(tikz_item| on layer $id:ident do
+$[
+$items:tikz_item
+]*
+) => do
+  let elts <- items.mapM elabTikzItem
+  let idStx := Syntax.mkStrLit id.getId.toString
+  `(TikzCommand.layer $idStx [$elts,*])
+
+| `(tikz_item| for $binding,* do
+$[
+$items:tikz_item
+]*
+) => do
+  let res <- mkFreshIdent (<- `(res))
+  let elts <- items.mapM elabTikzItem
+  let elts : Array (TSyntax `Lean.Parser.Term.doReassign) <-
+     elts.mapM fun elt =>
+      `(Lean.Parser.Term.doReassign|$res := List.cons $elt $res)
+  let elts : Array (TSyntax `Lean.Parser.Term.doSeqItem) <-
+     elts.mapM fun (elt: TSyntax `Lean.Parser.Term.doReassign) =>
+      `(Lean.Parser.Term.doSeqItem| $elt:doReassign)
+  let elts : TSyntax `Lean.Parser.Term.doSeq <-
+     `(Lean.Parser.Term.doSeq| $[$elts]*)
+  `(TikzCommand.block (
+  Id.run $ do
+    let mut $res := []
+    for $binding,* do
+       $elts
+    return (List.reverse $res)
+  ))
+
 | `(tikz_item| draw $it:interval_spec [$opt:latex_option,*] $s:tikz_body) => do
    let it <- expandIntervalSpec it
    let opts <- opt.getElems.mapM expandLatexOption
