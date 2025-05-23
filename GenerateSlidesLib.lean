@@ -52,5 +52,5 @@ unsafe def generateSlides (packages: String) (preamble: String) (allSlides: List
    if <- ("static" : System.FilePath).pathExists then
        let _ <- IO.Process.run { cmd := "cp", args := #[ "-R", ".", "../build" ], cwd := "static" }
    IO.FS.writeFile "build/slides.tex" slides_tex
-   let _ <- IO.Process.spawn { cmd := "pdflatex", args := #["slides.tex"], cwd := "build"}
+   let _ <- IO.Process.spawn { cmd := "pdflatex", args := #["-shell-escape", "slides.tex"], cwd := "build"}
    return ()
