@@ -15,8 +15,9 @@ deriving Repr
 
 inductive TikzCommand where
 | text (t: String)
-| node (range: List LatexInterval) (styles: List String) (pos: Option String) (body: String)
+| node (range: List LatexInterval) (styles: List String) (pos: Option String) (name: Option String) (body: String)
 | draw (range: List LatexInterval) (styles: List String) (body: String)
+| pathLetNode (bindings: List String) (range: List LatexInterval) (styles: List String) (pos: Option String) (name: Option String) (body: String)
 | layer (s: String) (body: List TikzCommand)
 | block (body: List TikzCommand)
 deriving Repr
@@ -31,7 +32,7 @@ deriving Repr
 
 
 inductive Slide where
-| BasicSlide (title: Option String) (content: List SlideContent)
+| BasicSlide (options: List String) (title: Option String) (content: List SlideContent)
 | RawSlide (str: String)
 deriving Repr
 

@@ -24,6 +24,8 @@ syntax ident : latex_option
 syntax ident " = " term : latex_option
 syntax "latex!"interpolatedLatexParser : latex_option
 syntax str : latex_option
+syntax "s!"interpolatedStr(term) : latex_option
+syntax "{" term "}" : latex_option
 
 def expandLatexOptionStr : TSyntax `latex_option -> MacroM String
 | `(latex_option| $id:ident ) => do
@@ -33,7 +35,7 @@ def expandLatexOptionStr : TSyntax `latex_option -> MacroM String
    let id := id.getId.toString
    return (id ++ "=" ++ e.getString)
 | `(latex_option| $s:str ) => return s.getString
-| _ => Macro.throwUnsupported
+| stx => Macro.throwErrorAt stx "Expected literal LaTeX option for package"
 
 
 def expandLatexOption : TSyntax `latex_option -> MacroM (TSyntax `term)
@@ -47,20 +49,25 @@ def expandLatexOption : TSyntax `latex_option -> MacroM (TSyntax `term)
    `($stx ++ "=" ++ $e)
 | `(latex_option| latex!$str:interpolatedStr) => do
    expandInterpolatedLatex str (← `(String)) (← `(toString))
+| `(latex_option| s!$str:interpolatedStr) => do
+   TSyntax.expandInterpolatedStr str (← `(String)) (← `(toString))
 | `(latex_option| $s:str ) => return s
-| _ => Macro.throwUnsupported
+| `(latex_option| { $t:term } ) => `(term| ToString.toString $t)
+| stx => Macro.throwErrorAt stx "Unexpected LaTeX option format"
 
 syntax ident : interval
-syntax ident " - " (ident)? : interval
-syntax "- " ident : interval
+syntax ident "-" (ident)? : interval
+syntax "-" ident : interval
 syntax "<" interval,+ ">" : interval_spec
+syntax "<" ident"->" : interval_spec
+syntax "<-" ident">" : interval_spec
 
 def expandInterval : TSyntax `interval -> MacroM (TSyntax `term)
 | `(interval| $id:ident) => `(LatexInterval.at $id)
 | `(interval| $id:ident - ) => `(LatexInterval.after $id)
 | `(interval| $st:ident - $ed:ident ) => `(LatexInterval.between $st $ed)
 | `(interval| - $id:ident ) => `(LatexInterval.upto $id)
-| _ => Macro.throwUnsupported
+| stx => Macro.throwErrorAt stx "Unsupported Interval form"
 
 syntax " at " "(" term "," term ")" : tikz_at_spec
 syntax " at " "(" term ")" : tikz_at_spec
@@ -72,7 +79,7 @@ def expandTikzAtSpec : TSyntax `tikz_at_spec -> MacroM (TSyntax `term)
 | `(tikz_at_spec| at ($t1:term)) => `(ToString.toString $t1)
 | `(tikz_at_spec| at $id:ident) => `(ToString.toString $id)
 | `(tikz_at_spec| at $id:str) => `($id)
-| _ => Macro.throwUnsupported
+| stx => Macro.throwErrorAt stx "Illegal Tikz at form"
 
 
 declare_syntax_cat tikz_body
@@ -84,7 +91,13 @@ def expandTikzBody : TSyntax `tikz_body -> MacroM (TSyntax `term)
    let s <- expandInterpolatedLatex str (← `(String)) (← `(toString))
    return s
 | `(tikz_body| $s:term) => `(term| ToString.toString $s)
-| _ => Macro.throwUnsupported
+| stx => Macro.throwErrorAt stx "Illegal Tikz body form"
+
+declare_syntax_cat tikz_coordinate_binding
+syntax "(" term "," term ")" " := " interpolatedLatexParser : tikz_coordinate_binding
+syntax "(" term "," term ")" " := " str : tikz_coordinate_binding
+
+syntax "with " " coordinates " tikz_coordinate_binding,* " in "  "node" (interval_spec)? ("[" latex_option,* "]")? (ident)? (tikz_at_spec)? tikz_body: tikz_item
 
 syntax "node" (interval_spec)? ("[" latex_option,* "]")? (ident)? (tikz_at_spec)? tikz_body : tikz_item
 syntax "draw" (interval_spec)? ("[" latex_option,* "]")? tikz_body : tikz_item
@@ -96,7 +109,33 @@ def expandIntervalSpec: TSyntax `interval_spec -> MacroM (TSyntax `term)
 | `(interval_spec| < $it:interval,* > ) => do
   let elems <- it.getElems.mapM expandInterval
   `([$elems,*])
-| _ => Macro.throwUnsupported
+| `(interval_spec| <-$id:ident> ) => do
+  `([LatexInterval.upto $id])
+| `(interval_spec| <$id:ident-> ) => do
+  `([LatexInterval.after $id])
+| stx => Macro.throwErrorAt stx "Illegal interval structure"
+
+def elabTikzCoordinateBindingExpr : TSyntax `tikz_coordinate_binding -> MacroM (TSyntax `term)
+| `(tikz_coordinate_binding| ($x, $y) := $str:str) => do
+   return str
+| `(tikz_coordinate_binding| ($x, $y) := $str:interpolatedStr) => do
+   let s <- expandInterpolatedLatex str (← `(String)) (← `(toString))
+   return s
+| stx => Macro.throwErrorAt stx "Illegal coordinate binding form [121]"
+
+def elabTikzCoordinateBindingFold (n: Nat) (rest: TSyntax `term) : TSyntax `tikz_coordinate_binding -> MacroM (Nat × TSyntax `term)
+| `(tikz_coordinate_binding| ($x, $y) := $str:str) => do
+   let xn := Syntax.mkStrLit s!"\\x{n}"
+   let yn := Syntax.mkStrLit s!"\\y{n}"
+   let binding <- `(term| let ($x,$y) := ($xn, $yn); $rest)
+   return (n + 1, binding)
+| `(tikz_coordinate_binding| ($x, $y) := $str:interpolatedStr) => do
+   let xn := Syntax.mkStrLit s!"\\x{n}"
+   let yn := Syntax.mkStrLit s!"\\y{n}"
+   let binding <- `(term| let ($x,$y) := ($xn, $yn); $rest)
+   return (n + 1, binding)
+| stx => Macro.throwErrorAt stx "Illegal coordinate binding form [129]"
+
 
 partial def elabTikzItem: TSyntax `tikz_item -> MacroM (TSyntax `term)
 | `(tikz_item| on layer $id:ident do
@@ -107,7 +146,6 @@ $items:tikz_item
   let elts <- items.mapM elabTikzItem
   let idStx := Syntax.mkStrLit id.getId.toString
   `(TikzCommand.layer $idStx [$elts,*])
-
 | `(tikz_item| for $binding,* do
 $[
 $items:tikz_item
@@ -131,60 +169,70 @@ $items:tikz_item
     return (List.reverse $res)
   ))
 
-| `(tikz_item| draw $it:interval_spec [$opt:latex_option,*] $s:tikz_body) => do
-   let it <- expandIntervalSpec it
+| `(tikz_item| draw $(it)? [$opt:latex_option,*] $s:tikz_body) => do
+   let it <- if let .some it := it then expandIntervalSpec it else `(term| [])
    let opts <- opt.getElems.mapM expandLatexOption
    let s <- expandTikzBody s
    `(TikzCommand.draw $it [$opts,*] $s)
-| `(tikz_item| draw [$opt:latex_option,*] $s:tikz_body) => do
-   let opts <- opt.getElems.mapM expandLatexOption
-   let s <- expandTikzBody s
-   `(TikzCommand.draw [] [$opts,*] $s)
-| `(tikz_item| draw $s:tikz_body) => do
-   let s <- expandTikzBody s
-   `(TikzCommand.draw [] [] $s)
-| `(tikz_item| draw $it:interval_spec $s:tikz_body) => do
-   let it <- expandIntervalSpec it
+
+| `(tikz_item| draw $(it)? $s:tikz_body) => do
+   let it <- if let .some it := it then expandIntervalSpec it else `(term| [])
    let s <- expandTikzBody s
    `(TikzCommand.draw $it [] $s)
 
-| `(tikz_item| node $it:interval_spec [$opt:latex_option,*] $e:tikz_at_spec $s:tikz_body) => do
-   let it <- expandIntervalSpec it
+| `(tikz_item| with coordinates $t,* in node $(it)? [$opt:latex_option,*] $(name)? $(at_spec)? $s:tikz_body) => do
+   let it <- if let .some it := it then expandIntervalSpec it else `(term| [])
    let opts <- opt.getElems.mapM expandLatexOption
    let s <- expandTikzBody s
-   let e <- expandTikzAtSpec e
-   `(TikzCommand.node $it [$opts,*] (Option.some $e) $s)
-| `(tikz_item| node $it:interval_spec $e:tikz_at_spec $s:tikz_body) => do
-   let it <- expandIntervalSpec it
+   let at_spec <- if let .some at_spec := at_spec
+                  then `(term| Option.some $(<- expandTikzAtSpec at_spec))
+                  else `(term| Option.none)
+   let name <-
+      if let .some name := name
+      then `(term| Option.some $(Syntax.mkStrLit name.getId.toString))
+      else `(term| Option.none)
+   let bindings <- t.getElems.mapM elabTikzCoordinateBindingExpr
+   let rest <- `(TikzCommand.pathLetNode [$bindings,*] $it [$opts,*] $at_spec $name $s)
+   let (_, res) <- t.getElems.foldlM (init:=(1, rest)) (fun (n, rest) tstx => elabTikzCoordinateBindingFold n rest tstx)
+   return res
+| `(tikz_item| with coordinates $t,* in node $(it)? $(name)? $(at_spec)? $s:tikz_body) => do
+   let it <- if let .some it := it then expandIntervalSpec it else `(term| [])
    let s <- expandTikzBody s
-   let e <- expandTikzAtSpec e
-   `(TikzCommand.node $it [] (Option.some $e) $s)
-| `(tikz_item| node $it:interval_spec [$opt:latex_option,*] $s:tikz_body) => do
-   let it <- expandIntervalSpec it
+   let at_spec <- if let .some at_spec := at_spec
+                  then `(term| Option.some $(<- expandTikzAtSpec at_spec))
+                  else `(term| Option.none)
+   let name <-
+      if let .some name := name
+      then `(term| Option.some $(Syntax.mkStrLit name.getId.toString))
+      else `(term| Option.none)
+   let bindings <- t.getElems.mapM elabTikzCoordinateBindingExpr
+   let rest <- `(TikzCommand.pathLetNode [$bindings,*] $it [] $at_spec $name $s)
+   let (_, res) <- t.getElems.foldrM (init:=(1, rest)) (fun tstx (n, rest) => elabTikzCoordinateBindingFold n rest tstx)
+   return res
+| `(tikz_item| node $(it)? [$opt:latex_option,*] $(name)? $(at_spec)? $s:tikz_body) => do
+   let it <- if let .some it := it then expandIntervalSpec it else `(term| [])
    let opts <- opt.getElems.mapM expandLatexOption
    let s <- expandTikzBody s
-   `(TikzCommand.node $it [$opts,*] (Option.none) $s)
-| `(tikz_item| node $it:interval_spec $s:tikz_body) => do
-   let it <- expandIntervalSpec it
+   let at_spec <- if let .some at_spec := at_spec
+                  then `(term| Option.some $(<- expandTikzAtSpec at_spec))
+                  else `(term| Option.none)
+   let name <-
+      if let .some name := name
+      then `(term| Option.some $(Syntax.mkStrLit name.getId.toString))
+      else `(term| Option.none)
+   `(TikzCommand.node $it [$opts,*] $at_spec $name $s)
+ | `(tikz_item| node $(it)? $(name)? $(at_spec)? $s:tikz_body) => do
+   let it <- if let .some it := it then expandIntervalSpec it else `(term| [])
    let s <- expandTikzBody s
-   `(TikzCommand.node $it [] (Option.none) $s)
-| `(tikz_item| node [$opt:latex_option,*] $e:tikz_at_spec $s:tikz_body) => do
-   let opts <- opt.getElems.mapM expandLatexOption
-   let s <- expandTikzBody s
-   let e <- expandTikzAtSpec e
-   `(TikzCommand.node [] [$opts,*] (Option.some $e) $s)
-| `(tikz_item| node [$opt:latex_option,*] $s:tikz_body) => do
-   let opts <- opt.getElems.mapM expandLatexOption
-   let s <- expandTikzBody s
-   `(TikzCommand.node [] [$opts,*] (Option.none) $s)
-| `(tikz_item| node $e:tikz_at_spec $s:tikz_body) => do
-   let s <- expandTikzBody s
-   let e <- expandTikzAtSpec e
-   `(TikzCommand.node [] [] (Option.some $e) $s)
-| `(tikz_item| node $s:tikz_body) => do
-   let s <- expandTikzBody s
-   `(TikzCommand.node [] [] (Option.none) $s)
-| _ => Macro.throwUnsupported
+   let at_spec <- if let .some at_spec := at_spec
+                  then `(term| Option.some $(<- expandTikzAtSpec at_spec))
+                  else `(term| Option.none)
+   let name <-
+      if let .some name := name
+      then `(term| Option.some $(Syntax.mkStrLit name.getId.toString))
+      else `(term| Option.none)
+   `(TikzCommand.node $it [] $at_spec $name $s)
+| stx => Macro.throwErrorAt stx "Illegal Tikz Item form"
 
 
 syntax "tikz" ("[" latex_option,* "]")? " do " ppLine withPosition((colEq tikz_item ppLine)*): slide_item
@@ -259,7 +307,7 @@ elab_rules : term
 ) => do
    let body <- body.mapM elabItem
    let body := Syntax.TSepArray.ofElems body 
-   let stx <- `(Slide.BasicSlide (.some $s) [$body,*])
+   let stx <- `(Slide.BasicSlide [] (.some $s) [$body,*])
    elabTerm stx .none
 | `(slide do
 $[
@@ -267,7 +315,7 @@ $body:slide_item
 ]*) => do
    let body <- body.mapM elabItem
    let body := Syntax.TSepArray.ofElems body 
-   let stx <- `(Slide.BasicSlide .none [$body,*])
+   let stx <- `(Slide.BasicSlide [] .none [$body,*])
    elabTerm stx .none
 
 
@@ -281,7 +329,7 @@ def expandUsePackageName : TSyntax `usepackage_name -> MacroM String
    let id := id.getId.toString
    return id
 | `(usepackage_name| $id:str ) => do return id.getString
-| _ => Macro.throwUnsupported
+| stx => Macro.throwErrorAt stx "Unexpected usepackage form"
 
 elab_rules : command
 | `(#usepackage $name:usepackage_name with options [$opt:latex_option,*] ) => do
@@ -307,7 +355,7 @@ elab_rules : command
     
 
 syntax "#latex_slide_expr" term : command
-syntax "#latex_slide " (Parser.strLit)? " do " (colGt slide_item linebreak)* : command
+syntax "#latex_slide " ("[" latex_option,* "]")? (Parser.strLit)? " do " (colGt slide_item linebreak)* : command
 syntax "#latex_command " interpolatedLatexParser : command
 
 elab_rules : command
@@ -315,8 +363,8 @@ elab_rules : command
     let stx <-
       liftMacroM $
          expandInterpolatedLatex str (← `(String)) (← `(toString))
-    let binding <- liftTermElabM <| mkFreshUserName `slide
-    let bindingStx := mkIdent binding
+    let _binding <- liftTermElabM <| mkFreshUserName `slide
+    let bindingStx := mkIdent _binding
     let stx <- `(term| Slide.RawSlide $stx)
     elabCommand <| (<- `(@[presentation]def $bindingStx:ident := $stx))
 
@@ -325,6 +373,17 @@ elab_rules : command
     let binding <- liftTermElabM <| mkFreshUserName `slide
     let bindingStx := mkIdent binding
     elabCommand <| (<- `(@[presentation]def $bindingStx:ident := $expr))
+| `(#latex_slide [$opt,*] $t:str do $[$body:slide_item
+]*) => do
+    let opts <- liftMacroM <| opt.getElems.mapM expandLatexOption
+    let binding <- liftTermElabM <| mkFreshUserName `slide
+    let bindingStx := mkIdent binding
+ 
+    let body <- liftTermElabM $ body.mapM elabItem
+    let body := Syntax.TSepArray.ofElems body 
+    let stx <- `(term| Slide.BasicSlide [$opts,*] (.some $t) [$body,*])
+    elabCommand <|
+      (<- `(@[presentation]def $bindingStx:ident := $stx:term))
 | `(#latex_slide $t:str do $[$body:slide_item
 ]*) => do
     let binding <- liftTermElabM <| mkFreshUserName `slide
@@ -332,7 +391,7 @@ elab_rules : command
  
     let body <- liftTermElabM $ body.mapM elabItem
     let body := Syntax.TSepArray.ofElems body 
-    let stx <- `(term| Slide.BasicSlide (.some $t) [$body,*])
+    let stx <- `(term| Slide.BasicSlide [] (.some $t) [$body,*])
     elabCommand <|
       (<- `(@[presentation]def $bindingStx:ident := $stx:term))
 
@@ -343,7 +402,18 @@ elab_rules : command
     let bindingStx := mkIdent binding
     let body <- liftTermElabM $ body.mapM elabItem
     let body := Syntax.TSepArray.ofElems body 
-    let stx <- `(term| Slide.BasicSlide .none [$body,*])
+    let stx <- `(term| Slide.BasicSlide [] .none [$body,*])
+    elabCommand <|
+    (<- `(@[presentation]def $bindingStx:ident := $stx))
+| `(#latex_slide [$opt,*] do $[$body:slide_item
+]*
+) => do
+    let opts <- liftMacroM <| opt.getElems.mapM expandLatexOption
+    let binding <- liftTermElabM <| mkFreshUserName `slide
+    let bindingStx := mkIdent binding
+    let body <- liftTermElabM $ body.mapM elabItem
+    let body := Syntax.TSepArray.ofElems body 
+    let stx <- `(term| Slide.BasicSlide [$opts,*] .none [$body,*])
     elabCommand <|
     (<- `(@[presentation]def $bindingStx:ident := $stx))
 

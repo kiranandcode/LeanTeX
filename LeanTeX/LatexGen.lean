@@ -15,8 +15,8 @@ def renderLatexIntervals (intervals: List LatexInterval) :=
   ",".intercalate <| intervals.map renderLatexInterval
 
 def renderTikzCommand : TikzCommand -> String
-| .text t => t
-| .node range styles pos body =>
+| .pathLetNode bindings range styles pos name body =>
+   let bindingsStr := ",".intercalate $ bindings.zipIdx.map fun (elt, idx) => s!"\\p{idx+1} = {elt}"
   let rangeStr :=
     if range.isEmpty then ""
     else renderLatexIntervals range |> (s!"<{·}>")
@@ -24,7 +24,19 @@ def renderTikzCommand : TikzCommand -> String
      if styles.isEmpty then ""
      else ",".intercalate styles |> (s!"[{·}]")
   let posStr := if let .some pos := pos then s!" at {pos}" else ""
-  s!"\\node{rangeStr}{stylesStr}{posStr} \{{body}};"
+  let nameStr := if let .some name := name then s!" ({name}) " else ""
+  s!"\\path let {bindingsStr} in node{rangeStr}{stylesStr}{nameStr}{posStr} \{{body}};"
+| .text t => t
+| .node range styles pos name body =>
+  let rangeStr :=
+    if range.isEmpty then ""
+    else renderLatexIntervals range |> (s!"<{·}>")
+  let stylesStr :=
+     if styles.isEmpty then ""
+     else ",".intercalate styles |> (s!"[{·}]")
+  let posStr := if let .some pos := pos then s!" at {pos}" else ""
+  let nameStr := if let .some name := name then s!" ({name}) " else ""
+  s!"\\node{rangeStr}{stylesStr}{nameStr}{posStr} \{{body}};"
 | .draw range styles body =>
   let rangeStr :=
     if range.isEmpty then ""
@@ -62,9 +74,12 @@ def renderContent : List SlideContent -> String
 
 def renderSlide (s: Slide) : String :=
   match s with
-  | .BasicSlide title content =>
+  | .BasicSlide opts title content =>
+     let opts  := match opts with
+       | [] => ""
+       | opts => "[" ++ ", ".intercalate opts ++ "]"
      let title := match title with
        | .none => ""
        | .some title => s!"\{{title}}"
-     s!"\\begin\{frame}{title}\n{renderContent content}\n\\end\{frame}\n"
+     s!"\\begin\{frame}{opts}{title}\n{renderContent content}\n\\end\{frame}\n"
   | .RawSlide s => s
