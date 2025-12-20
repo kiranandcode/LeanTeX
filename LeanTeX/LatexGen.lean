@@ -46,7 +46,7 @@ def renderTikzCommand : TikzCommand -> String
      else ",".intercalate styles |> (s!"[{·}]")
   s!"\\draw{rangeStr}{stylesStr} {body};"
 | .layer layer body =>
-  s!"\\begin\{pgfonlayer}\{{layer}}\n" ++ 
+  s!"\\begin\{pgfonlayer}\{{layer}}\n" ++
   "\n".intercalate (body.map renderTikzCommand) ++
   s!"\n\\end\{pgfonlayer}\n"
 | .block body =>

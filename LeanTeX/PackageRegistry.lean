@@ -1,6 +1,6 @@
 import Lean
 import LeanTeX.Slide
-open Lean Elab Command Term Meta 
+open Lean Elab Command Term Meta
 
 structure UsePackageDecl where
   name: String
@@ -40,4 +40,3 @@ def LeanTeX.getPackageStr : MetaM String := do
    let env <- getEnv
    let decls := packageRegistry.getState env
    return "\n".intercalate <| decls.toList.map (·.2 |> toString)
-

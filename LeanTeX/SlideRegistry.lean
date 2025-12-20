@@ -1,6 +1,6 @@
 import Lean
 import LeanTeX.Slide
-open Lean Elab Command Term Meta 
+open Lean Elab Command Term Meta
 
 initialize slideRegistry : SimplePersistentEnvExtension Name (Array Name) <-
    registerSimplePersistentEnvExtension {
