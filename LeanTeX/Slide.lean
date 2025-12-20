@@ -35,4 +35,3 @@ inductive Slide where
 | BasicSlide (options: List String) (title: Option String) (content: List SlideContent)
 | RawSlide (str: String)
 deriving Repr
-

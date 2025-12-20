@@ -1,6 +1,6 @@
 import Lean
 import LeanTeX.Slide
-open Lean Elab Command Term Meta 
+open Lean Elab Command Term Meta
 
 initialize preambleRegistry : SimplePersistentEnvExtension Name (Array Name) <-
    registerSimplePersistentEnvExtension {
@@ -12,7 +12,7 @@ initialize preambleRegistry : SimplePersistentEnvExtension Name (Array Name) <-
 
 def LeanTeX.addPreambleSnippet (name: Name) : MetaM Unit := do
    modifyEnv (preambleRegistry.addEntry · name)
-   
+
 
 def LeanTeX.getPreambleStr : MetaM (TSyntax `term) := do
    let env <- getEnv
@@ -23,5 +23,3 @@ def LeanTeX.getPreambleStr : MetaM (TSyntax `term) := do
      let init <- `($(mkIdent init))
      decls.foldlM (init := init)
         (fun l r => `($l:term ++ "\n" ++ $(mkIdent r)))
-
-

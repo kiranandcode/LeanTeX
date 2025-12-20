@@ -14,7 +14,7 @@ declare_syntax_cat latex_option
 
 syntax (name := slide) "slide " (Parser.strLit)? " do " ppLine withPosition((colEq slide_item ppLine)+) : term
 
-syntax 
+syntax
    "\\begin" "{" ident "}" (colGt slide_item)*
    "\\end" "{" ident "}" : slide_item
 syntax "\\item" "{" term  "}" : slide_item
@@ -116,20 +116,20 @@ def expandIntervalSpec: TSyntax `interval_spec -> MacroM (TSyntax `term)
 | stx => Macro.throwErrorAt stx "Illegal interval structure"
 
 def elabTikzCoordinateBindingExpr : TSyntax `tikz_coordinate_binding -> MacroM (TSyntax `term)
-| `(tikz_coordinate_binding| ($x, $y) := $str:str) => do
+| `(tikz_coordinate_binding| ($_, $_) := $str:str) => do
    return str
-| `(tikz_coordinate_binding| ($x, $y) := $str:interpolatedStr) => do
+| `(tikz_coordinate_binding| ($_, $_) := $str:interpolatedStr) => do
    let s <- expandInterpolatedLatex str (← `(String)) (← `(toString))
    return s
 | stx => Macro.throwErrorAt stx "Illegal coordinate binding form [121]"
 
 def elabTikzCoordinateBindingFold (n: Nat) (rest: TSyntax `term) : TSyntax `tikz_coordinate_binding -> MacroM (Nat × TSyntax `term)
-| `(tikz_coordinate_binding| ($x, $y) := $str:str) => do
+| `(tikz_coordinate_binding| ($x, $y) := $_:str) => do
    let xn := Syntax.mkStrLit s!"\\x{n}"
    let yn := Syntax.mkStrLit s!"\\y{n}"
    let binding <- `(term| let ($x,$y) := ($xn, $yn); $rest)
    return (n + 1, binding)
-| `(tikz_coordinate_binding| ($x, $y) := $str:interpolatedStr) => do
+| `(tikz_coordinate_binding| ($x, $y) := $_:interpolatedStr) => do
    let xn := Syntax.mkStrLit s!"\\x{n}"
    let yn := Syntax.mkStrLit s!"\\y{n}"
    let binding <- `(term| let ($x,$y) := ($xn, $yn); $rest)
@@ -291,7 +291,7 @@ $elts:slide_item
 | `(slide_item| \item{$txt}) => `(SlideContent.item $txt)
 | `(slide_item| \begin{$t1:ident} $[$elts:slide_item]* \end{$t2:ident}) => do
     if t1.getId != t2.getId then
-       throwErrorAt t1 "found block with mismatched tags {t1} != {t2}" 
+       throwErrorAt t1 "found block with mismatched tags {t1} != {t2}"
     let tag := Syntax.mkStrLit t1.getId.toString
     let elts <- elts.mapM fun elt => elabItem elt
     `(SlideContent.environment $tag:term [$elts,*])
@@ -306,7 +306,7 @@ elab_rules : term
        ]*
 ) => do
    let body <- body.mapM elabItem
-   let body := Syntax.TSepArray.ofElems body 
+   let body := Syntax.TSepArray.ofElems body
    let stx <- `(Slide.BasicSlide [] (.some $s) [$body,*])
    elabTerm stx .none
 | `(slide do
@@ -314,7 +314,7 @@ $[
 $body:slide_item
 ]*) => do
    let body <- body.mapM elabItem
-   let body := Syntax.TSepArray.ofElems body 
+   let body := Syntax.TSepArray.ofElems body
    let stx <- `(Slide.BasicSlide [] .none [$body,*])
    elabTerm stx .none
 
@@ -352,7 +352,7 @@ elab_rules : command
     let bindingStx := mkIdent binding
     elabCommand <| (<- `(def $bindingStx:ident := $stx))
     liftTermElabM <| LeanTeX.addPreambleSnippet binding
-    
+
 
 syntax "#latex_slide_expr" term : command
 syntax "#latex_slide " ("[" latex_option,* "]")? (Parser.strLit)? " do " (colGt slide_item linebreak)* : command
@@ -378,9 +378,9 @@ elab_rules : command
     let opts <- liftMacroM <| opt.getElems.mapM expandLatexOption
     let binding <- liftTermElabM <| mkFreshUserName `slide
     let bindingStx := mkIdent binding
- 
+
     let body <- liftTermElabM $ body.mapM elabItem
-    let body := Syntax.TSepArray.ofElems body 
+    let body := Syntax.TSepArray.ofElems body
     let stx <- `(term| Slide.BasicSlide [$opts,*] (.some $t) [$body,*])
     elabCommand <|
       (<- `(@[presentation]def $bindingStx:ident := $stx:term))
@@ -388,9 +388,9 @@ elab_rules : command
 ]*) => do
     let binding <- liftTermElabM <| mkFreshUserName `slide
     let bindingStx := mkIdent binding
- 
+
     let body <- liftTermElabM $ body.mapM elabItem
-    let body := Syntax.TSepArray.ofElems body 
+    let body := Syntax.TSepArray.ofElems body
     let stx <- `(term| Slide.BasicSlide [] (.some $t) [$body,*])
     elabCommand <|
       (<- `(@[presentation]def $bindingStx:ident := $stx:term))
@@ -401,7 +401,7 @@ elab_rules : command
     let binding <- liftTermElabM <| mkFreshUserName `slide
     let bindingStx := mkIdent binding
     let body <- liftTermElabM $ body.mapM elabItem
-    let body := Syntax.TSepArray.ofElems body 
+    let body := Syntax.TSepArray.ofElems body
     let stx <- `(term| Slide.BasicSlide [] .none [$body,*])
     elabCommand <|
     (<- `(@[presentation]def $bindingStx:ident := $stx))
@@ -412,8 +412,7 @@ elab_rules : command
     let binding <- liftTermElabM <| mkFreshUserName `slide
     let bindingStx := mkIdent binding
     let body <- liftTermElabM $ body.mapM elabItem
-    let body := Syntax.TSepArray.ofElems body 
+    let body := Syntax.TSepArray.ofElems body
     let stx <- `(term| Slide.BasicSlide [$opts,*] .none [$body,*])
     elabCommand <|
     (<- `(@[presentation]def $bindingStx:ident := $stx))
-
