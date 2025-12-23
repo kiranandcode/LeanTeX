@@ -3,6 +3,8 @@ import LeanTeX.Slide
 import LeanTeX.LatexLiteral
 import LeanTeX.PackageRegistry
 import LeanTeX.PreambleRegistry
+import LeanTeX.LatexCommandRegistry
+
 open Lean Elab Command Term Meta
 
 declare_syntax_cat slide_item
@@ -352,6 +354,38 @@ elab_rules : command
     let bindingStx := mkIdent binding
     elabCommand <| (<- `(def $bindingStx:ident := $stx))
     liftTermElabM <| LeanTeX.addPreambleSnippet binding
+
+syntax "#latex_preamble_template" term : command
+elab_rules : command
+| `(#latex_preamble_template $t:term) => do
+    let binding <- liftTermElabM <| mkFreshUserName `preambleTemplateSnippet
+    let bindingStx := mkIdent binding
+    elabCommand <| (<- `(def $bindingStx:ident : String -> String -> String := $t))
+    liftTermElabM <| LeanTeX.setPreambleTemplateFunction binding
+
+syntax "#latex_option" interpolatedStr(term) : command
+
+elab_rules : command
+| `(#latex_option $str:interpolatedStr) => do
+    let stx <-
+      liftMacroM $
+         TSyntax.expandInterpolatedStr str (← `(String)) (← `(toString))
+    let binding <- liftTermElabM <| mkFreshUserName `latexOptionSnippet
+    let bindingStx := mkIdent binding
+    elabCommand <| (<- `(def $bindingStx:ident := $stx))
+    liftTermElabM <| LeanTeX.addLatexCommandOption binding
+
+syntax "#latex_executable" interpolatedStr(term) : command
+
+elab_rules : command
+| `(#latex_executable $str:interpolatedStr) => do
+    let stx <-
+      liftMacroM $
+         TSyntax.expandInterpolatedStr str (← `(String)) (← `(toString))
+    let binding <- liftTermElabM <| mkFreshUserName `latexCommandSnippet
+    let bindingStx := mkIdent binding
+    elabCommand <| (<- `(def $bindingStx:ident := $stx))
+    liftTermElabM <| LeanTeX.setLatexCommand binding
 
 
 syntax "#latex_slide_expr" term : command
