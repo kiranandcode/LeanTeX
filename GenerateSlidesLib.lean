@@ -60,5 +60,6 @@ unsafe def generateSlides (config: LeanTeXConfig) : IO Unit := do
    if <- ("static" : System.FilePath).pathExists then
        let _ <- IO.Process.run { cmd := "cp", args := #[ "-R", ".", "../build" ], cwd := "static" }
    IO.FS.writeFile "build/slides.tex" slides_tex
-   let _ <- IO.Process.spawn { cmd := cmd, args := opts ++ #["-shell-escape", "slides.tex"], cwd := "build"}
+   let res <- IO.Process.spawn { cmd := cmd, args := opts ++ #["-shell-escape", "slides.tex"], cwd := "build"}
+   let _ <- res.wait
    return ()
