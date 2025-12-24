@@ -24,7 +24,7 @@ deriving Repr
 
 inductive SlideContent
 | item (s: String)
-| environment (s: String) (elts: List SlideContent)
+| environment (options: Option (List String)) (s: String) (elts: List SlideContent)
 | text (t: String)
 | block (elts: List SlideContent)
 | tikzpicture (context: TikzPictureContext) (elts: List TikzCommand)

@@ -56,8 +56,11 @@ def renderContent : List SlideContent -> String
 | [] => ""
 | SlideContent.item txt :: rest =>
    s!"\\item {txt}\n" ++ renderContent rest
-| SlideContent.environment tag contents :: rest =>
-   s!"\\begin\{{tag}}\n"
+| SlideContent.environment options tag contents :: rest =>
+   let optionsTag : String := match options with
+      | .none => ""
+      | .some opts => ("[" ++ ", ".intercalate opts ++ "]")
+   s!"\\begin{optionsTag}\{{tag}}\n"
    ++ renderContent contents
    ++ s!"\\end\{{tag}}\n"
    ++ renderContent rest
