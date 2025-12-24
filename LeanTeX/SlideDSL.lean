@@ -19,6 +19,9 @@ syntax (name := slide) "slide " (Parser.strLit)? " do " ppLine withPosition((col
 syntax
    "\\begin" "{" ident "}" (colGt slide_item)*
    "\\end" "{" ident "}" : slide_item
+syntax
+   "latex_env!" ("[" latex_option,* "]")? ident "do" ppLine colGt withPosition((colEq slide_item ppLine)+) : slide_item
+
 syntax "\\item" "{" term  "}" : slide_item
 syntax "latex!"interpolatedLatexParser : slide_item
 
@@ -296,7 +299,23 @@ $elts:slide_item
        throwErrorAt t1 "found block with mismatched tags {t1} != {t2}"
     let tag := Syntax.mkStrLit t1.getId.toString
     let elts <- elts.mapM fun elt => elabItem elt
-    `(SlideContent.environment $tag:term [$elts,*])
+    `(SlideContent.environment (Option.none) $tag:term [$elts,*])
+
+| `(slide_item| latex_env! $t1:ident do
+                    $[
+                    $elts:slide_item
+                    ]*) => do
+    let tag := Syntax.mkStrLit t1.getId.toString
+    let elts <- elts.mapM fun elt => elabItem elt
+    `(SlideContent.environment (Option.none) $tag:term [$elts,*])
+| `(slide_item| latex_env! [$opt,*] $t1:ident do
+                    $[
+                    $elts:slide_item
+                    ]*) => do
+    let opts <- liftMacroM <| opt.getElems.mapM expandLatexOption
+    let tag := Syntax.mkStrLit t1.getId.toString
+    let elts <- elts.mapM fun elt => elabItem elt
+    `(SlideContent.environment (Option.some [$opts,*]) $tag:term [$elts,*])
 | `(slide_item|  $t:term
 ) => pure t
 | _ => fun _ => Elab.throwUnsupportedSyntax
