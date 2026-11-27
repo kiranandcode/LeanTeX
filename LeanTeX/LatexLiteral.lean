@@ -119,7 +119,7 @@ def interpolatedLatexParserFormatter : Lean.PrettyPrinter.Formatter := do return
 def interpolatedLatexParserParenthesizer : Lean.PrettyPrinter.Parenthesizer := do return ()
 
 partial def decodeInterpLatexLit (val: String) : Option String :=
-    let try_ (f: String -> Option Substring.Raw) (s: String) : String :=
+    let try_ (f: String -> Option String.Slice) (s: String) : String :=
        match f s with
        | .none => s
        | .some s => s.toString
